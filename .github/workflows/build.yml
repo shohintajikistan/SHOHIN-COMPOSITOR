@@ -4,7 +4,9 @@ name: SHOHIN VIDEO COMPRESSOR APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
 
 permissions:
   contents: read
@@ -32,9 +34,11 @@ jobs:
         run: |
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/java/com/shohin/compressor
+          mkdir -p app/src/main/res/drawable-nodpi
 
           cp index.html app/src/main/assets/index.html
           cp MainActivity.java app/src/main/java/com/shohin/compressor/MainActivity.java
+          cp icon.png app/src/main/res/drawable-nodpi/icon.png
 
           cat > settings.gradle <<'EOF'
           pluginManagement {
@@ -59,6 +63,12 @@ jobs:
           plugins {
               id 'com.android.application' version '8.13.2' apply false
           }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
           EOF
 
           cat > app/build.gradle <<'EOF'
@@ -92,18 +102,26 @@ jobs:
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
               <application
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:allowBackup="false"
                   android:label="SHOHIN VIDEO COMPRESSOR"
-                  android:usesCleartextTraffic="false">
+                  android:icon="@drawable/icon"
+                  android:roundIcon="@drawable/icon"
+                  android:supportsRtl="true"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
+
                       <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
+
                   </activity>
               </application>
           </manifest>
@@ -115,7 +133,7 @@ jobs:
       - name: Build APK
         run: ./gradlew assembleDebug
 
-      - name: Save APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SHOHIN-VIDEO-COMPRESSOR
