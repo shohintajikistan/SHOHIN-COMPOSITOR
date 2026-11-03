@@ -3,157 +3,190 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#071c16">
 <title>SHOHIN VIDEO COMPRESSOR</title>
 <style>
-:root {
-  --bg:#071c16;
-  --panel:#0d3024;
-  --green:#08a56c;
-  --green2:#087b53;
-  --lime:#baf05b;
-  --white:#f3fff8;
-  --muted:#a3b9ad;
+:root{
+--bg:#071c16;--panel:#0d3024;--green:#08a56c;
+--green2:#087b53;--lime:#baf05b;--white:#f3fff8;
+--muted:#a3b9ad;
 }
 *{box-sizing:border-box}
 body{
-  margin:0;background:var(--bg);color:var(--white);
-  font-family:Arial,sans-serif;min-height:100vh;
+margin:0;background:var(--bg);color:var(--white);
+font-family:Arial,sans-serif;min-height:100vh
 }
 header{
-  padding:24px 18px 18px;
-  background:linear-gradient(135deg,#0d3024,#071c16);
-  border-bottom:1px solid #174c38;
+padding:25px 20px;background:linear-gradient(135deg,#0d3024,#071c16);
+border-bottom:1px solid #20533c
 }
-.logo{font-size:24px;font-weight:900;letter-spacing:1px}
+.logo{font-size:25px;font-weight:900;letter-spacing:1px}
 .logo span{color:var(--lime)}
-.subtitle{font-size:12px;color:var(--muted);margin-top:6px}
-main{padding:18px;max-width:600px;margin:auto}
+.sub{font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:2px}
+main{max-width:560px;margin:auto;padding:18px}
 .card{
-  background:var(--panel);border:1px solid #1b4a37;
-  border-radius:18px;padding:17px;margin-bottom:15px;
+background:var(--panel);border:1px solid #1b4a37;
+border-radius:18px;padding:18px;margin-bottom:16px
 }
-h3{margin:0 0 14px;font-size:16px}
+h3{font-size:16px;margin:0 0 16px}
 .upload{
-  border:2px dashed #27845e;border-radius:16px;
-  padding:28px 15px;text-align:center;cursor:pointer;
-  background:#102f24;
+display:block;text-align:center;padding:30px 12px;
+border:2px dashed #27845e;border-radius:15px;
+background:#102f24;cursor:pointer
 }
-.upload .symbol{font-size:38px;color:var(--lime)}
-.upload p{color:var(--muted);font-size:13px}
+.upload .plus{font-size:42px;color:var(--lime)}
+.upload p{font-size:12px;color:var(--muted)}
 button,select{
-  width:100%;padding:14px;border-radius:12px;
-  border:1px solid #286346;background:#123c2b;
-  color:white;font-size:15px;
+width:100%;padding:15px;border-radius:12px;
+border:1px solid #286346;background:#123c2b;
+color:white;font-size:14px
 }
 button{background:var(--green2);font-weight:bold;cursor:pointer}
-button:disabled{opacity:.45;cursor:not-allowed}
-.primary{background:var(--green);color:#041b12}
+button:disabled{opacity:.4}
+.primary{background:var(--green);color:#061c13}
 label{display:block;font-size:13px;color:var(--muted);margin:15px 0 8px}
-.video-info{display:none;margin-top:15px}
-.info-row{display:flex;justify-content:space-between;
-  padding:9px 0;border-bottom:1px solid #24513e;font-size:13px}
-.progress{height:9px;background:#173e2d;border-radius:20px;overflow:hidden;margin:14px 0}
+.info{display:none;margin-top:15px;overflow-wrap:anywhere}
+.line{display:flex;justify-content:space-between;gap:12px;
+padding:10px 0;border-bottom:1px solid #24513e;font-size:13px}
+.line span{color:var(--muted)}
+.progress{height:9px;background:#173e2d;border-radius:20px;
+overflow:hidden;margin:17px 0}
 .bar{height:100%;width:0;background:var(--lime);transition:width .3s}
-.status{font-size:13px;color:var(--muted);text-align:center}
+.status{text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
 .result{display:none}
 footer{text-align:center;padding:25px;color:#718b7c;font-size:11px}
 </style>
 </head>
 <body>
+
 <header>
-  <div class="logo">SHOHIN <span>VIDEO</span></div>
-  <div class="subtitle">VIDEO COMPRESSOR · OFFLINE EDITION</div>
+ <div class="logo">SHOHIN <span>VIDEO</span></div>
+ <div class="sub">VIDEO COMPRESSOR</div>
 </header>
 
 <main>
-  <div class="card">
-    <h3>Выбрать видео</h3>
-    <label class="upload" for="video">
-      <div class="symbol">＋</div>
-      <strong>Выбрать видео из галереи</strong>
-      <p>MP4, MOV, MKV и другие форматы</p>
-    </label>
-    <input id="video" type="file" accept="video/*" hidden>
 
-    <div class="video-info" id="videoInfo">
-      <div class="info-row"><span>Название</span><strong id="fileName">—</strong></div>
-      <div class="info-row"><span>Размер</span><strong id="fileSize">—</strong></div>
-      <div class="info-row"><span>Формат</span><strong id="fileType">—</strong></div>
-    </div>
+ <div class="card">
+  <h3>Выбрать видео</h3>
+  <div class="upload" onclick="chooseVideo()">
+   <div class="plus">＋</div>
+   <strong>Открыть галерею</strong>
+   <p>Выбери видео для сжатия</p>
   </div>
-
-  <div class="card">
-    <h3>Настройки сжатия</h3>
-    <label>Качество видео</label>
-    <select id="quality">
-      <option value="1080">1080p · Full HD</option>
-      <option value="720">720p · HD</option>
-      <option value="480">480p · SD</option>
-      <option value="original">Оригинальное разрешение</option>
-    </select>
-
-    <label>Степень сжатия</label>
-    <select id="compression">
-      <option value="high">Высокое качество</option>
-      <option value="medium" selected>Сбалансированное</option>
-      <option value="small">Минимальный размер</option>
-    </select>
+  <div class="info" id="info">
+   <div class="line"><span>Файл</span><b id="filename">—</b></div>
   </div>
+ </div>
 
-  <div class="card">
-    <button class="primary" id="compress" disabled>СЖАТЬ ВИДЕО</button>
-    <div class="progress"><div class="bar" id="bar"></div></div>
-    <div class="status" id="status">Ожидание видео...</div>
-  </div>
+ <div class="card">
+  <h3>Настройки видео</h3>
 
-  <div class="card result" id="result">
-    <h3>Результат</h3>
-    <div class="info-row"><span>Исходный размер</span><strong id="before">—</strong></div>
-    <div class="info-row"><span>Новый размер</span><strong id="after">—</strong></div>
-    <div class="info-row"><span>Экономия</span><strong id="saved">—</strong></div>
-    <button id="download">Скачать видео</button>
-  </div>
+  <label>Разрешение</label>
+  <select id="resolution">
+   <option value="1080">1080p Full HD</option>
+   <option value="720">720p HD</option>
+   <option value="480">480p SD</option>
+   <option value="0">Оригинальное</option>
+  </select>
+
+  <label>Качество</label>
+  <select id="quality">
+   <option value="85">Высокое качество</option>
+   <option value="70" selected>Сбалансированное</option>
+   <option value="50">Меньший размер</option>
+  </select>
+ </div>
+
+ <div class="card">
+  <button class="primary" id="start" onclick="compress()" disabled>
+   СЖАТЬ ВИДЕО
+  </button>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+  <div class="status" id="status">Выбери видео для начала</div>
+ </div>
+
+ <div class="card result" id="result">
+  <h3>Видео готово!</h3>
+  <div class="line"><span>Статус</span><b>Обработка завершена</b></div>
+  <p class="status">Сохрани видео в галерею телефона.</p>
+  <button class="primary" onclick="saveVideo()">СОХРАНИТЬ В ГАЛЕРЕЮ</button>
+ </div>
+
 </main>
 
 <footer>SHOHIN TAJIKISTAN © 2026</footer>
 
 <script>
-const videoInput = document.getElementById('video');
-const compressButton = document.getElementById('compress');
-const statusText = document.getElementById('status');
-const bar = document.getElementById('bar');
+let selected=false;
+let completed=false;
 
-let selectedVideo = null;
-
-function formatSize(bytes) {
-  if(bytes < 1024*1024) return (bytes/1024).toFixed(1)+' KB';
-  return (bytes/1024/1024).toFixed(2)+' MB';
+function chooseVideo(){
+ if(window.Shohin){
+  Shohin.selectVideo();
+ }else{
+  document.getElementById('status').textContent=
+  'Для выбора видео открой приложение SHOHIN на Android.';
+ }
 }
 
-videoInput.addEventListener('change', () => {
-  selectedVideo = videoInput.files[0];
-  if(!selectedVideo) return;
+function compress(){
+ if(!selected)return;
 
-  document.getElementById('videoInfo').style.display='block';
-  document.getElementById('fileName').textContent=selectedVideo.name;
-  document.getElementById('fileSize').textContent=formatSize(selectedVideo.size);
-  document.getElementById('fileType').textContent=selectedVideo.type || 'Видео';
+ completed=false;
+ document.getElementById('result').style.display='none';
+ document.getElementById('start').disabled=true;
+ document.getElementById('bar').style.width='5%';
+ document.getElementById('status').textContent='Подготовка видео...';
 
-  compressButton.disabled=false;
-  document.getElementById('result').style.display='none';
-  statusText.textContent='Видео выбрано. Настрой параметры.';
-  bar.style.width='0%';
-});
+ const height=Number(document.getElementById('resolution').value);
+ const quality=Number(document.getElementById('quality').value);
 
-compressButton.addEventListener('click', () => {
-  if(!selectedVideo) return;
-  statusText.textContent='Интерфейс готов. Видеодвижок FFmpeg ещё не подключён.';
-  alert('Это первый этап SHOHIN VIDEO COMPRESSOR. Сейчас подключим настоящий офлайн-движок FFmpeg в Android APK.');
-});
+ if(window.Shohin){
+  Shohin.compress(height,quality);
+ }else{
+  document.getElementById('status').textContent='Android-движок недоступен.';
+  document.getElementById('start').disabled=false;
+ }
+}
 
-document.getElementById('download').addEventListener('click',()=>{});
+function saveVideo(){
+ if(window.Shohin && completed){
+  Shohin.saveVideo();
+ }
+}
+
+window.onShohinEvent=function(event,value){
+ const status=document.getElementById('status');
+ const start=document.getElementById('start');
+
+ if(event==='selected'){
+  selected=true;
+  document.getElementById('info').style.display='block';
+  document.getElementById('filename').textContent=value;
+  start.disabled=false;
+  status.textContent='Видео выбрано. Можно начинать.';
+  document.getElementById('bar').style.width='0%';
+ }
+
+ if(event==='complete'){
+  completed=true;
+  start.disabled=false;
+  document.getElementById('bar').style.width='100%';
+  status.textContent='Сжатие завершено!';
+  document.getElementById('result').style.display='block';
+ }
+
+ if(event==='saved'){
+  status.textContent='Видео сохранено в галерею!';
+  alert('Видео сохранено!');
+ }
+
+ if(event==='error'){
+  start.disabled=false;
+  status.textContent='Ошибка: '+value;
+ }
+};
 </script>
 </body>
 </html>
