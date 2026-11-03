@@ -1,1 +1,159 @@
-r
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#071c16">
+<title>SHOHIN VIDEO COMPRESSOR</title>
+<style>
+:root {
+  --bg:#071c16;
+  --panel:#0d3024;
+  --green:#08a56c;
+  --green2:#087b53;
+  --lime:#baf05b;
+  --white:#f3fff8;
+  --muted:#a3b9ad;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--white);
+  font-family:Arial,sans-serif;min-height:100vh;
+}
+header{
+  padding:24px 18px 18px;
+  background:linear-gradient(135deg,#0d3024,#071c16);
+  border-bottom:1px solid #174c38;
+}
+.logo{font-size:24px;font-weight:900;letter-spacing:1px}
+.logo span{color:var(--lime)}
+.subtitle{font-size:12px;color:var(--muted);margin-top:6px}
+main{padding:18px;max-width:600px;margin:auto}
+.card{
+  background:var(--panel);border:1px solid #1b4a37;
+  border-radius:18px;padding:17px;margin-bottom:15px;
+}
+h3{margin:0 0 14px;font-size:16px}
+.upload{
+  border:2px dashed #27845e;border-radius:16px;
+  padding:28px 15px;text-align:center;cursor:pointer;
+  background:#102f24;
+}
+.upload .symbol{font-size:38px;color:var(--lime)}
+.upload p{color:var(--muted);font-size:13px}
+button,select{
+  width:100%;padding:14px;border-radius:12px;
+  border:1px solid #286346;background:#123c2b;
+  color:white;font-size:15px;
+}
+button{background:var(--green2);font-weight:bold;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:var(--green);color:#041b12}
+label{display:block;font-size:13px;color:var(--muted);margin:15px 0 8px}
+.video-info{display:none;margin-top:15px}
+.info-row{display:flex;justify-content:space-between;
+  padding:9px 0;border-bottom:1px solid #24513e;font-size:13px}
+.progress{height:9px;background:#173e2d;border-radius:20px;overflow:hidden;margin:14px 0}
+.bar{height:100%;width:0;background:var(--lime);transition:width .3s}
+.status{font-size:13px;color:var(--muted);text-align:center}
+.result{display:none}
+footer{text-align:center;padding:25px;color:#718b7c;font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SHOHIN <span>VIDEO</span></div>
+  <div class="subtitle">VIDEO COMPRESSOR · OFFLINE EDITION</div>
+</header>
+
+<main>
+  <div class="card">
+    <h3>Выбрать видео</h3>
+    <label class="upload" for="video">
+      <div class="symbol">＋</div>
+      <strong>Выбрать видео из галереи</strong>
+      <p>MP4, MOV, MKV и другие форматы</p>
+    </label>
+    <input id="video" type="file" accept="video/*" hidden>
+
+    <div class="video-info" id="videoInfo">
+      <div class="info-row"><span>Название</span><strong id="fileName">—</strong></div>
+      <div class="info-row"><span>Размер</span><strong id="fileSize">—</strong></div>
+      <div class="info-row"><span>Формат</span><strong id="fileType">—</strong></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Настройки сжатия</h3>
+    <label>Качество видео</label>
+    <select id="quality">
+      <option value="1080">1080p · Full HD</option>
+      <option value="720">720p · HD</option>
+      <option value="480">480p · SD</option>
+      <option value="original">Оригинальное разрешение</option>
+    </select>
+
+    <label>Степень сжатия</label>
+    <select id="compression">
+      <option value="high">Высокое качество</option>
+      <option value="medium" selected>Сбалансированное</option>
+      <option value="small">Минимальный размер</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <button class="primary" id="compress" disabled>СЖАТЬ ВИДЕО</button>
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div class="status" id="status">Ожидание видео...</div>
+  </div>
+
+  <div class="card result" id="result">
+    <h3>Результат</h3>
+    <div class="info-row"><span>Исходный размер</span><strong id="before">—</strong></div>
+    <div class="info-row"><span>Новый размер</span><strong id="after">—</strong></div>
+    <div class="info-row"><span>Экономия</span><strong id="saved">—</strong></div>
+    <button id="download">Скачать видео</button>
+  </div>
+</main>
+
+<footer>SHOHIN TAJIKISTAN © 2026</footer>
+
+<script>
+const videoInput = document.getElementById('video');
+const compressButton = document.getElementById('compress');
+const statusText = document.getElementById('status');
+const bar = document.getElementById('bar');
+
+let selectedVideo = null;
+
+function formatSize(bytes) {
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1)+' KB';
+  return (bytes/1024/1024).toFixed(2)+' MB';
+}
+
+videoInput.addEventListener('change', () => {
+  selectedVideo = videoInput.files[0];
+  if(!selectedVideo) return;
+
+  document.getElementById('videoInfo').style.display='block';
+  document.getElementById('fileName').textContent=selectedVideo.name;
+  document.getElementById('fileSize').textContent=formatSize(selectedVideo.size);
+  document.getElementById('fileType').textContent=selectedVideo.type || 'Видео';
+
+  compressButton.disabled=false;
+  document.getElementById('result').style.display='none';
+  statusText.textContent='Видео выбрано. Настрой параметры.';
+  bar.style.width='0%';
+});
+
+compressButton.addEventListener('click', () => {
+  if(!selectedVideo) return;
+  statusText.textContent='Интерфейс готов. Видеодвижок FFmpeg ещё не подключён.';
+  alert('Это первый этап SHOHIN VIDEO COMPRESSOR. Сейчас подключим настоящий офлайн-движок FFmpeg в Android APK.');
+});
+
+document.getElementById('download').addEventListener('click',()=>{});
+</script>
+</body>
+</html>
