@@ -10,37 +10,43 @@ import android.webkit.WebChromeClient;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.OpenableColumns;
+import android.provider.MediaStore;
 import android.database.Cursor;
 import android.content.ContentValues;
-import android.provider.MediaStore;
 import android.os.Build;
 import android.os.Environment;
 import android.widget.Toast;
-import android.media.MediaMetadataRetriever;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.ExportException;
+import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.VideoEncoderSettings;
 
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+@UnstableApi
 public class MainActivity extends Activity {
 
     WebView web;
     Transformer transformer;
     ExecutorService executor = Executors.newSingleThreadExecutor();
+
     Uri selectedUri;
     File outputFile;
-    String outputPath = "";
+
     int targetHeight = 1080;
     int quality = 70;
 
@@ -53,8 +59,8 @@ public class MainActivity extends Activity {
         web.getSettings().setDomStorageEnabled(true);
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient());
-        web.addJavascriptInterface(new Bridge(), "Shohin");
 
+        web.addJavascriptInterface(new Bridge(), "Shohin");
         setContentView(web);
         web.loadUrl("file:///android_asset/index.html");
     }
@@ -92,6 +98,8 @@ public class MainActivity extends Activity {
             }
 
             executor.execute(() -> {
+                Uri destination = null;
+
                 try {
                     ContentValues values = new ContentValues();
                     values.put(MediaStore.Video.Media.DISPLAY_NAME,
@@ -103,22 +111,32 @@ public class MainActivity extends Activity {
                                 Environment.DIRECTORY_MOVIES + "/SHOHIN");
                     }
 
-                    Uri destination = getContentResolver().insert(
+                    destination = getContentResolver().insert(
                             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
 
-                    if (destination == null) throw new IOException("Не удалось сохранить файл");
+                    if (destination == null) {
+                        throw new IOException("Не удалось создать файл");
+                    }
 
                     try (InputStream in = new java.io.FileInputStream(outputFile);
                          OutputStream out = getContentResolver().openOutputStream(destination)) {
 
+                        if (out == null) throw new IOException("Не удалось сохранить видео");
+
                         byte[] buffer = new byte[8192];
                         int count;
-                        while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+
+                        while ((count = in.read(buffer)) != -1) {
+                            out.write(buffer, 0, count);
+                        }
                     }
 
                     send("saved", "Видео сохранено в галерею");
 
                 } catch (Exception e) {
+                    if (destination != null) {
+                        getContentResolver().delete(destination, null, null);
+                    }
                     send("error", e.getMessage());
                 }
             });
@@ -137,31 +155,54 @@ public class MainActivity extends Activity {
                         selectedUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (Exception ignored) {}
 
-            String name = getFileName(selectedUri);
-            send("selected", name);
+            send("selected", getFileName(selectedUri));
         }
     }
 
     String getFileName(Uri uri) {
         String name = "video";
-        try (Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+
+        try (Cursor cursor = getContentResolver().query(
+                uri, null, null, null, null)) {
+
             if (cursor != null && cursor.moveToFirst()) {
                 int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                 if (index >= 0) name = cursor.getString(index);
             }
         } catch (Exception ignored) {}
+
         return name;
+    }
+
+    int getBitrate() {
+        int base;
+
+        if (targetHeight == 1080) base = 5000000;
+        else if (targetHeight == 720) base = 3000000;
+        else if (targetHeight == 480) base = 1500000;
+        else base = 5000000;
+
+        if (quality >= 80) return (int)(base * 1.5);
+        if (quality <= 50) return (int)(base * 0.55);
+
+        return base;
     }
 
     void startCompression() {
         try {
-            File input = new File(getCacheDir(), "shohin_input");
+            File input = new File(getCacheDir(), "shohin_input_video");
+
             try (InputStream in = getContentResolver().openInputStream(selectedUri);
                  FileOutputStream out = new FileOutputStream(input)) {
+
                 if (in == null) throw new IOException("Не удалось открыть видео");
+
                 byte[] buffer = new byte[8192];
                 int count;
-                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+
+                while ((count = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, count);
+                }
             }
 
             outputFile = new File(getCacheDir(),
@@ -170,21 +211,40 @@ public class MainActivity extends Activity {
             MediaItem item = MediaItem.fromUri(Uri.fromFile(input));
             EditedMediaItem edited = new EditedMediaItem.Builder(item).build();
 
-            Transformer.Listener listener = new Transformer.Listener() {
-                @Override
-                public void onCompleted(Composition composition, ExportResult result) {
-                    send("complete", outputFile.getAbsolutePath());
-                }
+            DefaultEncoderFactory encoderFactory =
+                    new DefaultEncoderFactory.Builder(this)
+                            .setRequestedVideoEncoderSettings(
+                                    new VideoEncoderSettings.Builder()
+                                            .setBitrate(getBitrate())
+                                            .build())
+                            .build();
 
-                @Override
-                public void onError(Composition composition, ExportResult result,
-                                    ExportException exception) {
-                    send("error", "Ошибка обработки: " + exception.getMessage());
-                }
-            };
+            Transformer.Builder builder = new Transformer.Builder(this)
+                    .setEncoderFactory(encoderFactory);
 
-            transformer = new Transformer.Builder(this)
-                    .setListener(listener)
+            if (targetHeight > 0) {
+                builder.setVideoEffects(Collections.singletonList(
+                        Presentation.createForShortSide(targetHeight)));
+            }
+
+            transformer = builder
+                    .setListener(new Transformer.Listener() {
+
+                        @Override
+                        public void onCompleted(
+                                Composition composition,
+                                ExportResult result) {
+                            send("complete", outputFile.getAbsolutePath());
+                        }
+
+                        @Override
+                        public void onError(
+                                Composition composition,
+                                ExportResult result,
+                                ExportException exception) {
+                            send("error", "Ошибка: " + exception.getMessage());
+                        }
+                    })
                     .build();
 
             transformer.start(edited, outputFile.getAbsolutePath());
