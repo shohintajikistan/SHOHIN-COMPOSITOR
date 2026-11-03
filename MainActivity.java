@@ -15,19 +15,6 @@ import android.database.Cursor;
 import android.content.ContentValues;
 import android.os.Build;
 import android.os.Environment;
-import android.widget.Toast;
-
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.effect.Presentation;
-import androidx.media3.transformer.Transformer;
-import androidx.media3.transformer.EditedMediaItem;
-import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.ExportResult;
-import androidx.media3.transformer.ExportException;
-import androidx.media3.transformer.DefaultEncoderFactory;
-import androidx.media3.transformer.VideoEncoderSettings;
-
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -36,6 +23,18 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import androidx.media3.common.MediaItem;
+import androidx.media3.transformer.Transformer;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.ExportResult;
+import androidx.media3.transformer.ExportException;
+import androidx.media3.transformer.DefaultEncoderFactory;
+import androidx.media3.transformer.VideoEncoderSettings;
+import androidx.media3.transformer.Effects;
+import androidx.media3.effect.Presentation;
+import androidx.media3.common.util.UnstableApi;
 
 @UnstableApi
 public class MainActivity extends Activity {
@@ -59,8 +58,8 @@ public class MainActivity extends Activity {
         web.getSettings().setDomStorageEnabled(true);
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient());
-
         web.addJavascriptInterface(new Bridge(), "Shohin");
+
         setContentView(web);
         web.loadUrl("file:///android_asset/index.html");
     }
@@ -87,13 +86,13 @@ public class MainActivity extends Activity {
                 return;
             }
 
-            runOnUiThread(() -> startCompression());
+            startCompression();
         }
 
         @JavascriptInterface
         public void saveVideo() {
             if (outputFile == null || !outputFile.exists()) {
-                send("error", "Готовое видео не найдено");
+                send("error", "Видео не найдено");
                 return;
             }
 
@@ -114,29 +113,27 @@ public class MainActivity extends Activity {
                     destination = getContentResolver().insert(
                             MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values);
 
-                    if (destination == null) {
+                    if (destination == null)
                         throw new IOException("Не удалось создать файл");
-                    }
 
                     try (InputStream in = new java.io.FileInputStream(outputFile);
                          OutputStream out = getContentResolver().openOutputStream(destination)) {
 
-                        if (out == null) throw new IOException("Не удалось сохранить видео");
+                        if (out == null) throw new IOException("Ошибка сохранения");
 
                         byte[] buffer = new byte[8192];
                         int count;
 
-                        while ((count = in.read(buffer)) != -1) {
+                        while ((count = in.read(buffer)) != -1)
                             out.write(buffer, 0, count);
-                        }
                     }
 
                     send("saved", "Видео сохранено в галерею");
 
                 } catch (Exception e) {
-                    if (destination != null) {
+                    if (destination != null)
                         getContentResolver().delete(destination, null, null);
-                    }
+
                     send("error", e.getMessage());
                 }
             });
@@ -189,46 +186,65 @@ public class MainActivity extends Activity {
     }
 
     void startCompression() {
-        try {
-            File input = new File(getCacheDir(), "shohin_input_video");
+        send("working", "Подготовка видео...");
 
-            try (InputStream in = getContentResolver().openInputStream(selectedUri);
-                 FileOutputStream out = new FileOutputStream(input)) {
+        executor.execute(() -> {
+            try {
+                File input = new File(getCacheDir(), "shohin_input_video");
 
-                if (in == null) throw new IOException("Не удалось открыть видео");
+                try (InputStream in = getContentResolver().openInputStream(selectedUri);
+                     FileOutputStream out = new FileOutputStream(input)) {
 
-                byte[] buffer = new byte[8192];
-                int count;
+                    if (in == null) throw new IOException("Не удалось открыть видео");
 
-                while ((count = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, count);
+                    byte[] buffer = new byte[8192];
+                    int count;
+
+                    while ((count = in.read(buffer)) != -1)
+                        out.write(buffer, 0, count);
                 }
+
+                outputFile = new File(getCacheDir(),
+                        "SHOHIN_" + System.currentTimeMillis() + ".mp4");
+
+                runOnUiThread(() -> exportVideo(input));
+
+            } catch (Exception e) {
+                send("error", e.getMessage());
+            }
+        });
+    }
+
+    void exportVideo(File input) {
+        try {
+            MediaItem item = MediaItem.fromUri(Uri.fromFile(input));
+
+            EditedMediaItem.Builder editedBuilder =
+                    new EditedMediaItem.Builder(item);
+
+            if (targetHeight > 0) {
+                editedBuilder.setEffects(new Effects(
+                        Collections.emptyList(),
+                        Collections.singletonList(
+                                Presentation.createForShortSide(targetHeight)
+                        )
+                ));
             }
 
-            outputFile = new File(getCacheDir(),
-                    "SHOHIN_" + System.currentTimeMillis() + ".mp4");
-
-            MediaItem item = MediaItem.fromUri(Uri.fromFile(input));
-            EditedMediaItem edited = new EditedMediaItem.Builder(item).build();
+            EditedMediaItem edited = editedBuilder.build();
 
             DefaultEncoderFactory encoderFactory =
                     new DefaultEncoderFactory.Builder(this)
                             .setRequestedVideoEncoderSettings(
                                     new VideoEncoderSettings.Builder()
                                             .setBitrate(getBitrate())
-                                            .build())
+                                            .build()
+                            )
                             .build();
 
-            Transformer.Builder builder = new Transformer.Builder(this)
-                    .setEncoderFactory(encoderFactory);
-
-            if (targetHeight > 0) {
-                builder.setVideoEffects(Collections.singletonList(
-                        Presentation.createForShortSide(targetHeight)));
-            }
-
-            transformer = builder
-                    .setListener(new Transformer.Listener() {
+            transformer = new Transformer.Builder(this)
+                    .setEncoderFactory(encoderFactory)
+                    .addListener(new Transformer.Listener() {
 
                         @Override
                         public void onCompleted(
@@ -242,7 +258,7 @@ public class MainActivity extends Activity {
                                 Composition composition,
                                 ExportResult result,
                                 ExportException exception) {
-                            send("error", "Ошибка: " + exception.getMessage());
+                            send("error", exception.getMessage());
                         }
                     })
                     .build();
@@ -260,9 +276,13 @@ public class MainActivity extends Activity {
                 .replace("'", "\\'")
                 .replace("\n", " ");
 
-        runOnUiThread(() -> web.evaluateJavascript(
-                "window.onShohinEvent && window.onShohinEvent('" +
-                        event + "','" + safe + "')", null));
+        runOnUiThread(() -> {
+            if (web != null) {
+                web.evaluateJavascript(
+                        "window.onShohinEvent && window.onShohinEvent('" +
+                        event + "','" + safe + "')", null);
+            }
+        });
     }
 
     @Override
